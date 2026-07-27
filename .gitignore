@@ -1,0 +1,12 @@
+# Terraform local state and generated files
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/kubeconfig
+terraform/crash.log
+
+# Local logs and editor files
+*.log
+.vscode/
+.idea/
+.DS_Store
