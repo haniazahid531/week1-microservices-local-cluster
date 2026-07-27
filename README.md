@@ -44,8 +44,18 @@ docker --version
 kubectl version --client
 kind version
 terraform version
-helm version
-```
+helm version 
+'''
+
+Installed versions used:
+
+- Git: 2.53.0
+- Docker: 28.5.2+dfsg4
+- kubectl: v1.36.3
+- Kustomize: v5.8.1
+- kind: v0.32.0
+- Terraform: v1.15.8
+- Helm: v4.2.3
 
 ## 1. Build the Images
 
