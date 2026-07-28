@@ -1,0 +1,24 @@
+===== HELM RELEASE =====
+NAME     	NAMESPACE	REVISION	UPDATED                                	STATUS  	CHART                    	APP VERSION
+week2-app	week2    	1       	2026-07-28 03:54:20.850272951 -0400 EDT	deployed	week2-microservices-0.1.0	1.0.0      
+
+===== WEEK 2 PODS =====
+NAME                        READY   STATUS    RESTARTS   AGE
+backend-75d5ff4d8f-bg9tp    2/2     Running   0          20m
+curl-injected               2/2     Running   0          15m
+curl-uninjected             1/1     Running   0          15m
+frontend-546d98f9cd-8zv5d   2/2     Running   0          20m
+
+===== ISTIO COMPONENTS =====
+NAME                          READY   STATUS    RESTARTS   AGE
+istiod-6b48bfdfd-7zbrp        1/1     Running   0          22m
+kiali-68568d476c-w7qfh        1/1     Running   0          11m
+prometheus-65c465688f-6swb8   2/2     Running   0          11m
+
+===== STRICT MTLS POLICY =====
+NAME          MODE     AGE
+strict-mtls   STRICT   17m
+
+===== NAMESPACE INJECTION LABEL =====
+NAME    STATUS   AGE   LABELS
+week2   Active   29m   istio-injection=enabled,kubernetes.io/metadata.name=week2,name=week2

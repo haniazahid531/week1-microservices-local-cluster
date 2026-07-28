@@ -1,0 +1,25 @@
+===== AUTHORIZED INJECTED REQUEST =====
+{"service":"frontend","message":"Frontend successfully contacted the backend","backend_response":{"message":"Hello from the backend microservice","service":"backend"}}
+
+
+===== UNAUTHORIZED UN-INJECTED REQUEST =====
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0* Host backend-service:8080 was resolved.
+* IPv6: (none)
+* IPv4: 10.96.211.118
+*   Trying 10.96.211.118:8080...
+* Connected to backend-service (10.96.211.118) port 8080
+* using HTTP/1.x
+> GET /health HTTP/1.1
+> Host: backend-service:8080
+> User-Agent: curl/8.12.1
+> Accept: */*
+> 
+* Request completely sent off
+* Recv failure: Connection reset by peer
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+* closing connection #0
+curl: (56) Recv failure: Connection reset by peer
+
+curl exit code: 56

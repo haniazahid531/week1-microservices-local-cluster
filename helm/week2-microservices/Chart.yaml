@@ -1,0 +1,6 @@
+apiVersion: v2
+name: week2-microservices
+description: Helm chart for the Week 2 frontend and backend microservices
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

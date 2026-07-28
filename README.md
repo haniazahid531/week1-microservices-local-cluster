@@ -199,3 +199,205 @@ Add screenshots or copied terminal output for:
 
 ## What I Built and My Approach
 I built two simple Go HTTP microservices: a frontend service and a backend service. I used multi-stage Dockerfiles so the applications could be compiled in one stage and copied into smaller final images. I used kind because it provides a lightweight local Kubernetes cluster through Docker. Terraform was used to create the cluster, while raw Kubernetes Deployment and Service manifests were used to deploy both applications. I verified the setup by checking the pods and services, using kubectl exec with curl for internal communication, and testing the frontend through port forwarding.
+
+---
+
+# Week 2 — Helm, Istio and Strict mTLS
+
+## Overview
+
+In Week 2, the Week 1 raw Kubernetes manifests were converted into a reusable Helm chart. Istio was then installed on the local kind cluster, automatic Envoy sidecar injection was enabled, and strict mutual TLS was enforced between the frontend and backend services.
+
+The final environment includes:
+
+- Frontend and backend managed through Helm
+- Istio control plane installed using Helm
+- Automatic Envoy sidecar injection
+- Strict namespace-wide mTLS
+- Successful communication between injected workloads
+- Blocked plaintext access from an un-injected pod
+- Prometheus metrics collection
+- Kiali service-mesh topology visualization
+
+## Architecture
+
+```text
+curl-injected pod
+        |
+        | Istio mTLS
+        v
+frontend-service:8081
+        |
+        | Istio mTLS
+        v
+backend-service:8080
+
+```
+
+## Project Structure
+
+```text
+helm/week2-microservices/
+├── Chart.yaml
+├── values.yaml
+└── templates/
+    ├── backend-deployment.yaml
+    ├── backend-service.yaml
+    ├── frontend-deployment.yaml
+    └── frontend-service.yaml
+
+istio/
+├── strict-mtls.yaml
+└── test-pods.yaml
+
+evidence/
+├── week2-final-status.txt
+└── week2-mtls-test.txt
+```
+
+## Helm Deployment
+
+The Week 1 raw Kubernetes manifests were converted into a reusable Helm chart.
+
+Validate and install the chart:
+
+```bash
+helm lint helm/week2-microservices
+
+helm install week2-app helm/week2-microservices \
+  --namespace week2 \
+  --create-namespace \
+  --wait \
+  --timeout 5m
+```
+
+Verify the release:
+
+```bash
+helm list -n week2
+kubectl get all -n week2
+```
+
+## Istio Installation
+
+Istio was installed using the official Helm repository:
+
+```bash
+helm repo add istio https://istio-release.storage.googleapis.com/charts
+helm repo update
+```
+
+The Istio base resources and control plane were installed:
+
+```bash
+helm install istio-base istio/base \
+  --version 1.30.3 \
+  --namespace istio-system \
+  --create-namespace \
+  --set defaultRevision=default \
+  --wait
+
+helm install istiod istio/istiod \
+  --version 1.30.3 \
+  --namespace istio-system \
+  --wait
+```
+
+## Automatic Sidecar Injection
+
+Automatic Envoy sidecar injection was enabled:
+
+```bash
+kubectl label namespace week2 \
+  istio-injection=enabled --overwrite
+
+kubectl rollout restart deployment -n week2
+```
+
+The frontend and backend pods then showed `2/2 Running`, representing the application container and Istio Envoy sidecar.
+
+## Strict mTLS
+
+Strict mutual TLS was enabled using:
+
+```yaml
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: strict-mtls
+  namespace: week2
+spec:
+  mtls:
+    mode: STRICT
+```
+
+Apply and verify:
+
+```bash
+kubectl apply -f istio/strict-mtls.yaml
+kubectl get peerauthentication -n week2
+```
+
+## mTLS Verification
+
+Two test pods were created:
+
+- `curl-injected`: Istio sidecar enabled
+- `curl-uninjected`: Istio sidecar disabled
+
+The injected request succeeded:
+
+```bash
+kubectl exec -n week2 curl-injected -c curl -- \
+  curl -sS http://frontend-service:8081/
+```
+
+The frontend successfully contacted the backend.
+
+The un-injected plaintext request failed:
+
+```bash
+kubectl exec -n week2 curl-uninjected -c curl -- \
+  curl -v --max-time 5 http://backend-service:8080/health
+```
+
+Observed result:
+
+```text
+Connection reset by peer
+curl exit code: 56
+```
+
+This proves that strict mTLS blocks communication from workloads without an Istio identity and certificate.
+
+## Prometheus and Kiali
+
+Prometheus and Kiali were installed for monitoring and service-mesh visualization.
+
+Kiali displayed the following traffic path:
+
+```text
+curl-injected → frontend-service → backend-service
+```
+
+The graph showed 100% successful traffic with no application errors.
+
+## Evidence
+
+Final command output is stored in:
+
+```text
+evidence/week2-final-status.txt
+evidence/week2-mtls-test.txt
+```
+
+## Week 2 Result
+
+The microservices are now:
+
+- Managed through a reusable Helm chart
+- Running with Istio Envoy sidecars
+- Protected with strict mutual TLS
+- Tested against unauthorized plaintext traffic
+- Monitored through Prometheus
+- Visualized through Kiali
