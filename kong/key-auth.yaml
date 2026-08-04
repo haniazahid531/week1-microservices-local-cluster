@@ -1,0 +1,21 @@
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: frontend-key-auth
+  namespace: week2
+plugin: key-auth
+config:
+  key_names:
+    - apikey
+  hide_credentials: true
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: week3-client
+  namespace: week2
+  annotations:
+    kubernetes.io/ingress.class: kong
+username: week3-client
+credentials:
+  - week3-api-key

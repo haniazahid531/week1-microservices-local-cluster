@@ -1,0 +1,34 @@
+===== KONG HELM RELEASE =====
+NAME	NAMESPACE	REVISION	UPDATED                                	STATUS  	CHART         	APP VERSION
+kong	kong     	1       	2026-08-04 04:46:28.548803865 -0400 EDT	deployed	ingress-0.24.0	3.9        
+
+===== KONG PODS AND SERVICES =====
+NAME                                  READY   STATUS    RESTARTS   AGE
+pod/kong-controller-cd7757cdb-hrlxh   2/2     Running   0          48m
+pod/kong-gateway-58d4ff84cc-8rgb2     2/2     Running   0          48m
+pod/kong-mesh-test                    2/2     Running   0          31m
+
+NAME                                         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                         AGE
+service/kong-controller-metrics              ClusterIP   10.96.241.61    <none>        10255/TCP,10254/TCP             48m
+service/kong-controller-validation-webhook   ClusterIP   10.96.238.181   <none>        443/TCP                         48m
+service/kong-gateway-admin                   ClusterIP   None            <none>        8444/TCP                        48m
+service/kong-gateway-manager                 NodePort    10.96.139.25    <none>        8002:32530/TCP,8445:30469/TCP   48m
+service/kong-gateway-proxy                   ClusterIP   10.96.75.49     <none>        80/TCP                          48m
+
+===== KONG ROUTE =====
+NAME            CLASS   HOSTS   ADDRESS       PORTS   AGE
+frontend-kong   kong    *       10.96.75.49   80      43m
+
+===== KONG PLUGINS AND CONSUMER =====
+NAME                                                      PLUGIN-TYPE     AGE     PROGRAMMED
+kongplugin.configuration.konghq.com/frontend-key-auth     key-auth        8m14s   
+kongplugin.configuration.konghq.com/frontend-rate-limit   rate-limiting   4m35s   
+
+NAME                                                 USERNAME       AGE     PROGRAMMED
+kongconsumer.configuration.konghq.com/week3-client   week3-client   8m14s   True
+
+===== INGRESS PLUGINS =====
+frontend-key-auth,frontend-rate-limit
+
+===== SERVICE-MESH ROUTING =====
+{"ingress.kubernetes.io/service-upstream":"true","meta.helm.sh/release-name":"week2-app","meta.helm.sh/release-namespace":"week2"}

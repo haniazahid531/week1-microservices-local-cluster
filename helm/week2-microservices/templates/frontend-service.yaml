@@ -4,6 +4,8 @@ metadata:
   name: {{ .Values.frontend.service.name }}
   labels:
     app: {{ .Values.frontend.name }}
+  annotations:
+    ingress.kubernetes.io/service-upstream: "true"
 spec:
   type: {{ .Values.frontend.service.type }}
   selector:
