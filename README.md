@@ -401,3 +401,284 @@ The microservices are now:
 - Tested against unauthorized plaintext traffic
 - Monitored through Prometheus
 - Visualized through Kiali
+
+---
+
+# Week 3 — Kong Gateway and CI Pipeline
+
+## Overview
+
+In Week 3, Kong Gateway was installed in the local Kubernetes cluster and configured as the external entry point for the frontend microservice.
+
+The route was secured using:
+
+- API-key authentication
+- A rate limit of five requests per minute
+- Istio sidecar injection and strict mTLS communication
+- Automated GitHub Actions checks
+- Automated Docker image publishing to GitHub Container Registry
+
+## Architecture
+
+```text
+External client
+      |
+      | API key
+      v
+Kong API Gateway
+      |
+      | Rate limit: 5 requests/minute
+      | Istio mTLS
+      v
+frontend-service:8081
+      |
+      | Istio mTLS
+      v
+backend-service:8080
+```
+
+## Kong Installation
+
+Kong Gateway and Kong Ingress Controller were installed using the official Helm chart:
+
+```bash
+helm repo add kong https://charts.konghq.com
+helm repo update
+
+helm upgrade --install kong kong/ingress \
+  --version 0.24.0 \
+  --namespace kong \
+  --values kong/values.yaml \
+  --wait \
+  --timeout 15m
+```
+
+The Kong namespace has automatic Istio sidecar injection enabled:
+
+```bash
+kubectl label namespace kong \
+  istio-injection=enabled --overwrite
+```
+
+Both Kong workloads showed `2/2 Running`, representing the Kong container and Istio Envoy sidecar.
+
+## Kong Route
+
+The Kubernetes Ingress routes external traffic through Kong to the frontend service:
+
+```text
+Kong Gateway → frontend-service:8081
+```
+
+Route configuration:
+
+```text
+kong/frontend-ingress.yaml
+```
+
+The following settings were required for compatibility with the Istio service mesh:
+
+```yaml
+konghq.com/preserve-host: "false"
+```
+
+The frontend Kubernetes Service uses:
+
+```yaml
+ingress.kubernetes.io/service-upstream: "true"
+```
+
+This makes Kong send traffic through the Kubernetes Service instead of connecting directly to individual Pod IPs.
+
+## API-Key Authentication
+
+The Kong `key-auth` plugin protects the frontend route.
+
+Relevant resources:
+
+```text
+kong/key-auth.yaml
+```
+
+The configuration includes:
+
+- `KongPlugin` named `frontend-key-auth`
+- `KongConsumer` named `week3-client`
+- A Kubernetes Secret containing the API-key credential
+
+The actual API key is stored locally outside the Git repository and is not committed to GitHub.
+
+Authentication tests produced:
+
+```text
+No API key       → HTTP 401 Unauthorized
+Incorrect key    → HTTP 401 Unauthorized
+Correct API key  → HTTP 200 OK
+```
+
+Example authenticated request:
+
+```bash
+curl \
+  -H "apikey: <API_KEY>" \
+  http://127.0.0.1:8000/
+```
+
+## Rate Limiting
+
+The Kong rate-limiting plugin is configured in:
+
+```text
+kong/rate-limit.yaml
+```
+
+Configuration:
+
+```yaml
+plugin: rate-limiting
+config:
+  minute: 5
+  policy: local
+```
+
+The plugin is attached to the frontend Ingress together with key authentication:
+
+```text
+frontend-key-auth,frontend-rate-limit
+```
+
+Six rapid authenticated requests produced:
+
+```text
+Requests 1–5 → HTTP 200 OK
+Request 6    → HTTP 429 Too Many Requests
+```
+
+The sixth response contained:
+
+```json
+{
+  "message": "API rate limit exceeded"
+}
+```
+
+## GitHub Actions CI Pipeline
+
+The workflow is stored in:
+
+```text
+.github/workflows/week3-ci.yml
+```
+
+It runs automatically when code is pushed to the `main` branch.
+
+The workflow performs:
+
+- Go formatting checks
+- Go tests
+- Go vet
+- Go compilation
+- Docker image builds
+- Authentication to GitHub Container Registry
+- Automatic image publishing
+
+The workflow contains four jobs:
+
+```text
+Test backend
+Test frontend
+Build backend image
+Build frontend image
+```
+
+All four jobs completed successfully.
+
+## Image Tagging Strategy
+
+Both images are published with two tags:
+
+```text
+latest
+full Git commit SHA
+```
+
+Backend image:
+
+```text
+ghcr.io/haniazahid531/week1-microservices-local-cluster-backend:latest
+ghcr.io/haniazahid531/week1-microservices-local-cluster-backend:<COMMIT_SHA>
+```
+
+Frontend image:
+
+```text
+ghcr.io/haniazahid531/week1-microservices-local-cluster-frontend:latest
+ghcr.io/haniazahid531/week1-microservices-local-cluster-frontend:<COMMIT_SHA>
+```
+
+For the successful Week 3 workflow, the commit SHA tag was:
+
+```text
+68a7a6a238ade427af9c62aee123f45dfa6bf8e5
+```
+
+## Pulling the Published Images
+
+Backend:
+
+```bash
+docker pull \
+  ghcr.io/haniazahid531/week1-microservices-local-cluster-backend:latest
+```
+
+Frontend:
+
+```bash
+docker pull \
+  ghcr.io/haniazahid531/week1-microservices-local-cluster-frontend:latest
+```
+
+## Week 3 Files
+
+```text
+.github/workflows/week3-ci.yml
+
+kong/
+├── frontend-ingress.yaml
+├── key-auth.yaml
+├── rate-limit.yaml
+└── values.yaml
+
+evidence/
+├── week3-kong-status.txt
+└── week3-ci-ghcr.txt
+```
+
+## Verification Commands
+
+```bash
+kubectl get pods,services -n kong
+kubectl get ingress -n week2
+kubectl get kongplugin,kongconsumer -n week2
+helm list -n kong
+```
+
+Check the attached plugins:
+
+```bash
+kubectl get ingress frontend-kong -n week2 \
+  -o jsonpath='{.metadata.annotations.konghq\.com/plugins}'
+```
+
+## Week 3 Result
+
+The application is now:
+
+- Exposed through Kong API Gateway
+- Protected with API-key authentication
+- Limited to five requests per minute
+- Connected to the Istio-secured microservices
+- Tested automatically after every push
+- Built as Docker images automatically
+- Published to GitHub Container Registry
+- Tagged with both `latest` and the Git commit SHA
