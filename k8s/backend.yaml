@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: backend
-          image: week1-backend:v1
-          imagePullPolicy: IfNotPresent
+          image: ghcr.io/haniazahid531/week1-microservices-local-cluster-backend:latest
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8080

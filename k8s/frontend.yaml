@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: week1-frontend:v1
-          imagePullPolicy: IfNotPresent
+          image: ghcr.io/haniazahid531/week1-microservices-local-cluster-frontend:latest
+          imagePullPolicy: Always
           env:
             - name: BACKEND_URL
               value: http://backend-service:8080
