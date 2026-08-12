@@ -7,7 +7,7 @@ spec:
   replicas: 2
   selector:
     matchLabels:
-      app: backend-failure-test
+      app: backend
   template:
     metadata:
       labels:
