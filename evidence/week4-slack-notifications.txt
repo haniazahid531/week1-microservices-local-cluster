@@ -1,0 +1,34 @@
+=== Week 4 Revision: Slack Failure Notifications ===
+
+Application: week4-microservices
+Slack channel: #argocd-alerts
+Trigger: on-sync-failed
+
+=== Notification Controller ===
+NAME                              READY   UP-TO-DATE   AVAILABLE   AGE
+argocd-notifications-controller   1/1     1            1           8h
+
+=== Secret Key Names (values intentionally hidden) ===
+slack-webhook
+
+=== Notification ConfigMap Keys ===
+service.webhook.slack
+template.app-sync-failed
+trigger.on-sync-failed
+
+=== Application Subscription ===
+argocd-alerts
+
+=== Controlled Failure Test ===
+Phase: Failed
+Retry count: 5
+Started: 2026-08-12T17:37:45Z
+Finished: 2026-08-12T17:43:42Z
+Result: Slack failure alert received successfully.
+
+=== Final Recovery Status ===
+NAME                  SYNC STATUS   HEALTH STATUS
+week4-microservices   Synced        Healthy
+NAME       READY   UP-TO-DATE   AVAILABLE   AGE
+backend    2/2     2            2           16d
+frontend   1/1     1            1           16d

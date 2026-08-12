@@ -739,3 +739,69 @@ kubectl get pods -n week1 -o custom-columns='POD:.metadata.name,IMAGE:.spec.cont
 - Backend and frontend deployed using GHCR images
 - Application verified as Healthy and Synced
 - Backend running with two replicas
+
+
+## GitOps Architecture
+
+```mermaid
+flowchart TD
+    A[Developer pushes code] --> B[GitHub repository]
+    B --> C[GitHub Actions CI]
+    C --> D[Build and test images]
+    D --> E[Push images to GHCR]
+    B --> F[Argo CD monitors k8s manifests]
+    F --> G[kind Kubernetes cluster]
+    E --> G
+    G --> H[Backend and frontend pods]
+    F --> I[Automatic sync and self-healing]
+    F --> J{Sync successful?}
+    J -->|No| K[Slack webhook]
+    K --> L[Slack argocd-alerts channel]
+```
+
+### Workflow Explanation
+
+1. A developer commits application code or Kubernetes manifest changes to GitHub.
+2. GitHub Actions runs the CI pipeline, tests the services, builds container images, and publishes them to GHCR.
+3. Argo CD continuously monitors the `k8s` directory on the `main` branch.
+4. When Git changes, Argo CD automatically synchronizes the manifests to the local kind Kubernetes cluster.
+5. Kubernetes pulls the CI-built backend and frontend images from GHCR.
+6. Argo CD self-healing restores any live cluster changes that do not match Git.
+7. If a synchronization operation reaches the `Failed` or `Error` phase, Argo CD Notifications sends an Incoming Webhook alert to the Slack `#argocd-alerts` channel.
+
+## Synchronization Time
+
+The initial Argo CD application synchronization started at `06:49:14` and completed at `06:49:17`, giving an observed sync time of approximately **3 seconds**.
+
+A later GitOps scaling test changed the backend from one to two replicas. After the manifest was pushed to GitHub, Argo CD detected and deployed the change automatically without `kubectl apply`.
+
+## Slack Sync-Failure Notifications
+
+Argo CD Notifications is configured with:
+
+- Trigger: `on-sync-failed`
+- Failure phases: `Error` and `Failed`
+- Delivery method: Slack Incoming Webhook
+- Destination channel: `#argocd-alerts`
+- Application subscription: `week4-microservices`
+
+A controlled failure was tested by temporarily introducing an invalid immutable Deployment selector. Argo CD retried the synchronization five times and then reported:
+
+```text
+Phase: Failed
+Retry count: 5
+Started: 2026-08-12T17:37:45Z
+Finished: 2026-08-12T17:43:42Z
+```
+
+The Slack channel successfully received an alert containing the application name, failed phase, and repository URL. The manifest was then restored, pushed to GitHub, and Argo CD returned the application to `Healthy` and `Synced`.
+
+> Security note: The Slack webhook URL is stored only in the Kubernetes Secret `argocd-notifications-secret`. The secret value is not committed to Git.
+
+## Revision Completion
+
+- Argo CD Slack webhook notifications configured
+- Real sync-failure alert successfully tested
+- Architecture diagram added to the README
+- Synchronization time documented
+- Application restored to Healthy and Synced after testing

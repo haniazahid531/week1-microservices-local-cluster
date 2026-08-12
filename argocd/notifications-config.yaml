@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  service.webhook.slack: |
+    url: $slack-webhook
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  template.app-sync-failed: |
+    message: Argo CD synchronization failed.
+    webhook:
+      slack:
+        method: POST
+        body: |
+          {
+            "text": "Argo CD sync failure\nApplication: {{.app.metadata.name}}\nPhase: {{.app.status.operationState.phase}}\nRepository: {{.app.spec.source.repoURL}}"
+          }
+
+  trigger.on-sync-failed: |
+    - when: app.status.operationState.phase in ['Error', 'Failed']
+      send: [app-sync-failed]
