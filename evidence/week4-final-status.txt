@@ -1,0 +1,24 @@
+=== Argo CD Application ===
+NAME                  SYNC STATUS   HEALTH STATUS
+week4-microservices   Synced        Healthy
+
+=== Week 1 Deployments ===
+NAME       READY   UP-TO-DATE   AVAILABLE   AGE
+backend    2/2     2            2           16d
+frontend   1/1     1            1           16d
+
+=== Week 1 Pods and Services ===
+NAME                            READY   STATUS    RESTARTS   AGE
+pod/backend-fb48ffc94-dbm5m     1/1     Running   0          9m34s
+pod/backend-fb48ffc94-s8z6k     1/1     Running   0          5m6s
+pod/frontend-688d76486c-dggmg   1/1     Running   0          16m
+
+NAME                       TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+service/backend-service    ClusterIP   10.96.66.93     <none>        8080/TCP   16d
+service/frontend-service   ClusterIP   10.96.219.230   <none>        8081/TCP   16d
+
+=== Running Images ===
+POD                         IMAGE
+backend-fb48ffc94-dbm5m     ghcr.io/haniazahid531/week1-microservices-local-cluster-backend:latest
+backend-fb48ffc94-s8z6k     ghcr.io/haniazahid531/week1-microservices-local-cluster-backend:latest
+frontend-688d76486c-dggmg   ghcr.io/haniazahid531/week1-microservices-local-cluster-frontend:latest

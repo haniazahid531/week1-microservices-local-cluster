@@ -682,3 +682,60 @@ The application is now:
 - Built as Docker images automatically
 - Published to GitHub Container Registry
 - Tagged with both `latest` and the Git commit SHA
+
+# Week 4 — GitOps Continuous Deployment with Argo CD
+
+## Overview
+
+Week 4 implements GitOps continuous deployment using Argo CD. The Kubernetes manifests stored in GitHub are now the desired state of the application. Argo CD continuously compares GitHub with the cluster and automatically synchronizes any differences.
+
+## Argo CD Application
+
+- Application: `week4-microservices`
+- Project: `default`
+- Repository: `https://github.com/haniazahid531/week1-microservices-local-cluster.git`
+- Revision: `main`
+- Manifest path: `k8s`
+- Destination: `https://kubernetes.default.svc`
+- Namespace: `week1`
+- Sync policy: Automatic
+- Pruning: Enabled
+- Self-healing: Enabled
+
+## Container Images
+
+```text
+ghcr.io/haniazahid531/week1-microservices-local-cluster-backend:latest
+ghcr.io/haniazahid531/week1-microservices-local-cluster-frontend:latest
+```
+
+The Kubernetes manifests use `imagePullPolicy: Always` so the latest GHCR images are pulled whenever pods are created.
+
+## GitOps Scaling Test
+
+The backend replica count was changed in `k8s/backend.yaml` from one to two and pushed to GitHub. Argo CD detected the commit and automatically scaled the backend deployment to two Running pods without using `kubectl apply`.
+
+## Self-Healing Test
+
+The live backend deployment was manually scaled to zero replicas. Because self-healing is enabled, Argo CD detected that the cluster no longer matched GitHub and automatically restored the backend deployment.
+
+## Verification
+
+```bash
+kubectl get application week4-microservices -n argocd
+kubectl get deployments -n week1
+kubectl get pods,svc -n week1
+kubectl get pods -n week1 -o custom-columns='POD:.metadata.name,IMAGE:.spec.containers[*].image'
+```
+
+## Week 4 Result
+
+- Argo CD installed in the local kind cluster
+- GitHub repository configured as the deployment source
+- Automatic synchronization enabled
+- Resource pruning enabled
+- Self-healing successfully demonstrated
+- Git-driven scaling successfully demonstrated
+- Backend and frontend deployed using GHCR images
+- Application verified as Healthy and Synced
+- Backend running with two replicas
