@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: week5-webhook
+  namespace: monitoring
+spec:
+  route:
+    receiver: week5-webhook
+    groupBy:
+      - alertname
+      - namespace
+    groupWait: 10s
+    groupInterval: 30s
+    repeatInterval: 1h
+
+  receivers:
+    - name: week5-webhook
+      webhookConfigs:
+        - url: http://week5-alert-receiver.monitoring.svc:8080/
+          sendResolved: true
+

@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: week5-test-alert
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: week5.test.rules
+      rules:
+        - alert: Week5DeliberateTestAlertV3
+          expr: vector(1)
+          for: 0s
+          labels:
+            severity: test
+            team: devops
+          annotations:
+            summary: "Deliberate Week 5 test alert"
+            description: "This alert was deliberately triggered to verify Prometheus, Alertmanager, and the webhook notification channel."
+            runbook_url: "RUNBOOK.md#week5deliberatetestalert"
+

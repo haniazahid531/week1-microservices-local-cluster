@@ -805,3 +805,204 @@ The Slack channel successfully received an alert containing the application name
 - Architecture diagram added to the README
 - Synchronization time documented
 - Application restored to Healthy and Synced after testing
+
+
+# Week 5 - Observability and Alerting
+
+## Overview
+
+Week 5 adds a complete Kubernetes observability and alerting stack to the existing microservices cluster.
+
+The implementation includes:
+
+- Prometheus for metrics collection
+- Grafana for dashboards and visualization
+- Alertmanager for alert routing
+- Three production-style Prometheus alert rules
+- An internal webhook notification channel
+- A deliberately triggered test alert
+- A documented alert-response runbook
+- Simulated application traffic for dashboard verification
+
+## Architecture
+
+Application traffic passes through the Istio proxy. Prometheus collects Istio and Kubernetes metrics. Grafana queries Prometheus and displays request rate, error rate, and P95 latency. Prometheus sends firing alerts to Alertmanager, which routes notifications to the webhook receiver.
+
+Application -> Istio Metrics -> Prometheus -> Grafana
+
+Prometheus Rules -> Alertmanager -> Webhook Receiver
+
+## Monitoring Components
+
+The `kube-prometheus-stack` Helm chart installs:
+
+- Prometheus
+- Grafana
+- Alertmanager
+- Prometheus Operator
+- kube-state-metrics
+- Prometheus Node Exporter
+
+All monitoring resources run in the `monitoring` namespace.
+
+## Project Files
+
+- `monitoring/values.yaml` - Helm configuration
+- `monitoring/istio-podmonitor.yaml` - Istio metrics collection
+- `monitoring/alert-rules.yaml` - Three permanent Prometheus alert rules
+- `monitoring/test-alert.yaml` - Deliberate alert test
+- `monitoring/grafana/dashboards/week5-dashboard.yaml` - Code-provisioned Grafana dashboard
+- `monitoring/alertmanager/webhook-receiver.yaml` - Internal webhook receiver
+- `monitoring/alertmanager/alertmanager-config.yaml` - Operator-native Alertmanager routing
+- `RUNBOOK.md` - Alert investigation and response instructions
+
+## Installation
+
+Set the kubeconfig:
+
+    export KUBECONFIG="$PWD/terraform/kubeconfig"
+
+Add and update the Helm repository:
+
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    helm repo update
+
+Create the monitoring namespace:
+
+    kubectl create namespace monitoring
+
+Install or update the monitoring stack:
+
+    helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+      --namespace monitoring \
+      --values monitoring/values.yaml \
+      --wait \
+      --timeout 10m
+
+Apply the custom monitoring resources:
+
+    kubectl apply -f monitoring/istio-podmonitor.yaml
+    kubectl apply -f monitoring/grafana/dashboards/week5-dashboard.yaml
+    kubectl apply -f monitoring/alert-rules.yaml
+    kubectl apply -f monitoring/alertmanager/webhook-receiver.yaml
+    kubectl apply -f monitoring/alertmanager/alertmanager-config.yaml
+
+## Access Grafana
+
+Start port forwarding:
+
+    kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
+
+Open:
+
+    http://127.0.0.1:3000
+
+Local lab credentials:
+
+- Username: `admin`
+- Password: `week5admin`
+
+## Custom Grafana Dashboard
+
+Dashboard title:
+
+`Week 5 - Application Observability`
+
+The dashboard is provisioned through a labelled Kubernetes ConfigMap and contains:
+
+1. Request Rate
+2. HTTP 5xx Error Rate
+3. P95 Request Latency
+
+The dashboard automatically refreshes every 10 seconds.
+
+## Simulated Load
+
+The following command sends 300 requests to the Week 2 frontend:
+
+    kubectl exec -n week2 curl-injected -- sh -c \
+      'for i in $(seq 1 300); do curl -s -o /dev/null http://frontend-service:8081/; done; echo "300 requests completed"'
+
+Prometheus collects the resulting Istio request and latency metrics, which appear in Grafana.
+
+## Alert Rules
+
+### HighApplicationLatency
+
+Triggers when P95 application latency remains above 1000 milliseconds for more than two minutes.
+
+### HighApplicationErrorRate
+
+Triggers when HTTP 5xx responses exceed 10 percent of total requests for more than two minutes.
+
+### PodCrashLooping
+
+Triggers when a container restarts more than twice within five minutes.
+
+## Notification Channel
+
+Alertmanager uses the `week5-webhook` receiver.
+
+The notification endpoint is:
+
+    http://week5-alert-receiver.monitoring.svc:8080/
+
+The webhook receiver records notification payloads in its pod logs.
+
+View notifications:
+
+    kubectl logs -n monitoring deployment/week5-alert-receiver --since=5m
+
+## Deliberate Alert Test
+
+The `Week5DeliberateTestAlertV3` rule uses `vector(1)` to deliberately create a firing alert.
+
+Apply the test:
+
+    kubectl apply -f monitoring/test-alert.yaml
+
+Verify the alert notification:
+
+    kubectl logs -n monitoring deployment/week5-alert-receiver --since=5m
+
+The successful payload contains:
+
+- Alert name: `Week5DeliberateTestAlertV3`
+- Status: `firing`
+- Receiver: `week5-webhook`
+- Severity: `test`
+
+Remove the temporary test rule after collecting evidence:
+
+    kubectl delete -f monitoring/test-alert.yaml
+
+## Runbook
+
+`RUNBOOK.md` documents investigation and response procedures for:
+
+- High application latency
+- High application error rate
+- Repeated pod crashes
+- The deliberate Week 5 test alert
+
+## Verification
+
+Check all monitoring pods:
+
+    kubectl get pods -n monitoring
+
+Check alert rules:
+
+    kubectl get prometheusrule -n monitoring
+
+Check the dashboard ConfigMap:
+
+    kubectl get configmap week5-observability-dashboard -n monitoring
+
+Check Alertmanager configuration:
+
+    kubectl get alertmanagerconfig -n monitoring
+
+## Week 5 Result
+
+The final system provides code-provisioned dashboards, Kubernetes and Istio metrics, three permanent alert rules, a tested notification channel, simulated-load evidence, and documented incident-response procedures.

@@ -1,0 +1,54 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: week5-application-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: week5.application.rules
+      rules:
+        - alert: HighApplicationLatency
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(istio_request_duration_milliseconds_bucket{reporter="destination"}[5m])) by (le)
+            ) > 1000
+          for: 2m
+          labels:
+            severity: warning
+            team: devops
+          annotations:
+            summary: "Application latency is too high"
+            description: "P95 application latency has exceeded 1000 ms for more than 2 minutes."
+            runbook_url: "RUNBOOK.md#highapplicationlatency"
+
+        - alert: HighApplicationErrorRate
+          expr: |
+            (
+              100 *
+              sum(rate(istio_requests_total{reporter="destination",response_code=~"5.."}[5m]))
+              /
+              clamp_min(sum(rate(istio_requests_total{reporter="destination"}[5m])), 0.001)
+            ) > 10
+          for: 2m
+          labels:
+            severity: critical
+            team: devops
+          annotations:
+            summary: "Application error rate is too high"
+            description: "More than 10 percent of application requests are returning HTTP 5xx errors."
+            runbook_url: "RUNBOOK.md#highapplicationerrorrate"
+
+        - alert: PodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total[5m]) > 2
+          for: 1m
+          labels:
+            severity: critical
+            team: devops
+          annotations:
+            summary: "A Kubernetes pod is repeatedly restarting"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} has restarted more than twice in 5 minutes."
+            runbook_url: "RUNBOOK.md#podcrashlooping"
