@@ -1006,3 +1006,195 @@ Check Alertmanager configuration:
 ## Week 5 Result
 
 The final system provides code-provisioned dashboards, Kubernetes and Istio metrics, three permanent alert rules, a tested notification channel, simulated-load evidence, and documented incident-response procedures.
+
+---
+
+# Week 6 - Canary Deployments and Platform Polish
+
+## Overview
+
+Week 6 replaces the backend Kubernetes Deployment with an Argo Rollout. The rollout shifts capacity through 20%, 50%, and 100% stages and uses Prometheus analysis to decide whether a revision should be promoted or automatically rolled back.
+
+## Architecture
+
+    Developer
+        |
+        | git push
+        v
+    GitHub Actions
+        |
+        | builds and pushes GHCR images
+        v
+    GitHub Repository <---- Argo CD watches main/k8s
+                                |
+                                v
+                         Argo Rollouts Controller
+                                |
+                  +-------------+-------------+
+                  |                           |
+             Stable Pods                 Canary Pods
+                  |                           |
+                  +------ backend-service ---+
+                                |
+                         Istio Metrics
+                                |
+                           Prometheus
+                                |
+                     AnalysisTemplate decision
+                         |               |
+                      promote         rollback
+
+    Client --> Kong key-auth/rate-limit --> Frontend --> Backend
+
+## Week 6 Files
+
+- `k8s/backend.yaml`: backend Rollout and Service
+- `k8s/backend-analysis.yaml`: Prometheus AnalysisTemplate
+- `rollouts/values.yaml`: reproducible Helm values
+- `rollouts/install-argo-rollouts.sh`: idempotent installation script
+- `rollouts/ROLLBACK.md`: tested rollback and recovery procedure
+- `istio/frontend-kong-mtls.yaml`: frontend-only Kong mTLS compatibility policy
+- `screenshots/week6/`: Week 6 test evidence
+
+## Install Argo Rollouts
+
+Ensure `KUBECONFIG` points to the cluster:
+
+    export KUBECONFIG="$PWD/terraform/kubeconfig"
+
+Install or upgrade Argo Rollouts:
+
+    ./rollouts/install-argo-rollouts.sh
+
+Verify installation:
+
+    kubectl get pods -n argo-rollouts
+    kubectl get crd rollouts.argoproj.io analysistemplates.argoproj.io
+
+## Deploy Through GitOps
+
+The Argo CD application `week4-microservices` watches the `k8s` directory on the `main` branch.
+
+Validate manifests before pushing:
+
+    kubectl apply --dry-run=client \
+      -f k8s/backend-analysis.yaml \
+      -f k8s/backend.yaml
+
+Commit and push:
+
+    git add k8s/backend.yaml k8s/backend-analysis.yaml
+    git commit -m "feat: update backend canary"
+    git push origin main
+
+Request an immediate Argo CD refresh when required:
+
+    kubectl annotate application week4-microservices \
+      -n argocd \
+      argocd.argoproj.io/refresh=hard \
+      --overwrite
+
+## Canary Strategy
+
+The backend Rollout contains five replicas and performs:
+
+1. `setWeight: 20`
+2. 30-second pause
+3. Prometheus analysis
+4. `setWeight: 50`
+5. 30-second pause
+6. Prometheus analysis
+7. `setWeight: 100`
+
+Watch it with:
+
+    kubectl argo rollouts get rollout backend -n week1 --watch
+
+A healthy completed rollout displays:
+
+- Status `Healthy`
+- Step `7/7`
+- SetWeight `100`
+- Five ready and available replicas
+
+## Metric-Driven Promotion
+
+The AnalysisTemplate queries `istio_requests_total` from Prometheus and calculates the HTTP 5xx error proportion.
+
+The canary passes when the result is at or below 5%. Empty Prometheus results safely evaluate to zero using `or vector(0)`.
+
+## Automated Rollback
+
+A controlled failure test proved that a failed Prometheus assessment automatically:
+
+- aborted the new revision;
+- scaled down the canary ReplicaSet;
+- preserved five healthy stable pods; and
+- prevented service interruption.
+
+The full procedure and manual recovery commands are documented in `rollouts/ROLLBACK.md`.
+
+## Final End-to-End Verification
+
+The final tested delivery path was:
+
+1. A change was pushed to GitHub.
+2. `.github/workflows/week3-ci.yml` completed successfully.
+3. Backend and frontend images were built and pushed to GHCR.
+4. Argo CD synchronized the matching Git revision.
+5. Argo Rollouts completed Prometheus-gated canary promotion.
+6. Kong accepted an authenticated request and returned HTTP 200.
+7. Prometheus returned active `istio_requests_total` series.
+
+Check recent CI runs:
+
+    curl -s \
+      "https://api.github.com/repos/haniazahid531/week1-microservices-local-cluster/actions/runs?per_page=5" \
+      | jq -r '.workflow_runs[] | [.head_sha[0:7], .status, .conclusion] | @tsv'
+
+Check Argo CD:
+
+    kubectl get application week4-microservices -n argocd \
+      -o jsonpath='{.status.sync.revision}{" "}{.status.sync.status}{" "}{.status.health.status}{"\n"}'
+
+Check Prometheus:
+
+    kubectl exec -n week2 curl-injected -- \
+      curl -sG \
+      --data-urlencode 'query=count(istio_requests_total)' \
+      http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090/api/v1/query
+
+## Kong and Istio Compatibility
+
+The `week2` namespace keeps namespace-wide `STRICT` mTLS. Kong is not sidecar-injected, so `istio/frontend-kong-mtls.yaml` permits plaintext or mTLS only for frontend pods.
+
+Apply the policy:
+
+    kubectl apply -f istio/frontend-kong-mtls.yaml
+
+Kong key authentication remains enabled. The API key is read from the Kubernetes Secret and must never be committed or printed.
+
+## Reproducing the Platform
+
+1. Provision the local cluster using the existing Terraform configuration.
+2. Export `KUBECONFIG="$PWD/terraform/kubeconfig"`.
+3. Follow the Week 1-5 setup sections to deploy Istio, Kong, Argo CD, applications, and monitoring.
+4. Run `./rollouts/install-argo-rollouts.sh`.
+5. Apply `istio/frontend-kong-mtls.yaml`.
+6. Push the `k8s` manifests so Argo CD synchronizes the Rollout and AnalysisTemplate.
+7. Verify all namespaces and workloads with `kubectl get pods -A`.
+8. Run the end-to-end verification commands above.
+
+All installation configuration, manifests, policies, rollback instructions, and evidence required for reproduction are stored in Git.
+
+## Week 6 Evidence
+
+- Successful canary: `screenshots/week6/01-successful-canary.png`
+- Automated rollback: `screenshots/week6/02-automated-rollback.png`
+- Successful CI: `screenshots/week6/03-ci-success.png`
+- Kong HTTP 200: `screenshots/week6/04-kong-route-success.png`
+- Prometheus metrics: `screenshots/week6/05-prometheus-metrics.png`
+
+## Week 6 Result
+
+The platform now provides automated metric-driven canary deployments, Prometheus-based promotion gates, tested automatic rollback, authenticated Kong routing, GitOps synchronization, CI-built container images, and reproducible installation documentation.

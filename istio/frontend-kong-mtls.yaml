@@ -1,0 +1,11 @@
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: frontend-kong-permissive
+  namespace: week2
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+  mtls:
+    mode: PERMISSIVE
