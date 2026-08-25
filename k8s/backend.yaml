@@ -43,7 +43,7 @@ spec:
           imagePullPolicy: Always
           env:
             - name: APP_VERSION
-              value: "rollback-test-v3"
+              value: "canary-v2"
           ports:
             - name: http
               containerPort: 8080
