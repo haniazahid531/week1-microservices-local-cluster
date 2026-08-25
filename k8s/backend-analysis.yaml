@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: backend-success-rate
+  namespace: week1
+spec:
+  metrics:
+    - name: backend-error-rate
+      interval: 15s
+      count: 3
+      failureLimit: 1
+      successCondition: result[0] <= 0.05
+      provider:
+        prometheus:
+          address: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
+          query: |
+            (
+              sum(
+                rate(
+                  istio_requests_total{
+                    reporter="destination",
+                    response_code=~"5.."
+                  }[1m]
+                )
+              )
+              or vector(0)
+            )
+            /
+            clamp_min(
+              sum(
+                rate(
+                  istio_requests_total{
+                    reporter="destination"
+                  }[1m]
+                )
+              ),
+              0.001
+            )
