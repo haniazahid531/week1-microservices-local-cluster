@@ -15,24 +15,30 @@ spec:
           address: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
           query: |
             (
-              sum(
-                rate(
-                  istio_requests_total{
-                    reporter="destination",
-                    response_code=~"5.."
-                  }[1m]
+              (
+                sum(
+                  rate(
+                    istio_requests_total{
+                      reporter="destination",
+                      response_code=~"5.."
+                    }[1m]
+                  )
                 )
+                or vector(0)
               )
-              or vector(0)
+              /
+              clamp_min(
+                (
+                  sum(
+                    rate(
+                      istio_requests_total{
+                        reporter="destination"
+                      }[1m]
+                    )
+                  )
+                  or vector(0)
+                ),
+                0.001
+              )
             )
-            /
-            clamp_min(
-              sum(
-                rate(
-                  istio_requests_total{
-                    reporter="destination"
-                  }[1m]
-                )
-              ),
-              0.001
-            )
+            or vector(0)
